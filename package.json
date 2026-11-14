@@ -1,0 +1,20 @@
+{
+  "name": "redact-and-ask",
+  "version": "1.0.0",
+  "description": "Ask an AI about a document without sending its personal data to the cloud.",
+  "directories": {
+    "test": "tests"
+  },
+  "scripts": {
+    "test": "node --test tests/core.test.mjs",
+    "deploy": "firebase deploy --only hosting"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "Apache-2.0",
+  "type": "module",
+  "devDependencies": {
+    "firebase-tools": "^15.36.0"
+  },
+  "private": true
+}

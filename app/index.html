@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Redact &amp; Ask</title>
+<style>
+  :root{--bg:#F6F4EF;--card:#fff;--ink:#1C1B19;--muted:#6B665D;--line:#DDD8CE;--accent:#0F766E;--accent-bg:#E6F2F0;--warn:#B45309;--warn-bg:#FDF0E1}
+  @media (prefers-color-scheme: dark){:root{--bg:#141413;--card:#1E1D1B;--ink:#EEEAE2;--muted:#A39E93;--line:#34322E;--accent:#5EC4B8;--accent-bg:#17302D;--warn:#F0B26B;--warn-bg:#3A2A14}}
+  *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 -apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
+  main{max-width:1040px;margin:0 auto;padding:24px 16px 64px}
+  header{display:flex;justify-content:space-between;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  h1{font-size:28px;margin:0} h2{font-size:17px;margin:0 0 8px} p.sub{color:var(--muted);margin:2px 0 0}
+  section{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-top:14px}
+  textarea{width:100%;min-height:200px;padding:12px;border:1px solid var(--line);border-radius:10px;font:14px/1.55 ui-monospace,Menlo,monospace;background:var(--bg);color:var(--ink)}
+  button{font:600 15px/1 inherit;padding:11px 14px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff} button:disabled{opacity:.45;cursor:default}
+  @media (prefers-color-scheme: dark){button.primary{color:#0B1F1D}}
+  .row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px}
+  .badge{font-size:13px;padding:4px 10px;border-radius:999px;background:var(--accent-bg);color:var(--accent);font-weight:600}
+  .badge.warn{background:var(--warn-bg);color:var(--warn)}
+  pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;margin:0;font:14px/1.6 ui-monospace,Menlo,monospace}
+  mark{background:var(--accent-bg);color:var(--accent);border-radius:4px;padding:0 3px;font-weight:600}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px} @media (max-width:760px){.grid{grid-template-columns:1fr}}
+  .tablewrap{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:14px} td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+  .muted{color:var(--muted);font-size:13px} .hidden{display:none}
+  input[type=text]{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;min-width:220px}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div><h1>Redact &amp; Ask</h1><p class="sub">Personal data is found and masked on this device. The cloud only ever sees placeholders.</p></div>
+    <div class="row"><span id="deviceBadge" class="badge">checking on-device model…</span><span id="cloudBadge" class="badge warn">cloud: not configured</span></div>
+  </header>
+
+  <section>
+    <h2>1 · Your document</h2>
+    <textarea id="src" spellcheck="false" aria-label="Document text"></textarea>
+    <div class="row"><button id="scan" class="primary">Privacy scan (on-device)</button><span id="scanInfo" class="muted"></span></div>
+  </section>
+
+  <section id="reviewCard" class="hidden">
+    <h2>2 · Review what will leave this device</h2>
+    <div class="grid">
+      <div><pre id="masked"></pre></div>
+      <div class="tablewrap"><table id="map"><thead><tr><th>Placeholder</th><th>Original (stays here)</th><th>Found by</th></tr></thead><tbody></tbody></table></div>
+    </div>
+    <div class="row"><input id="extra" type="text" placeholder="Missed something? Type it exactly" aria-label="Add a value to mask"><button id="addExtra">Mask it too</button></div>
+  </section>
+
+  <section id="taskCard" class="hidden">
+    <h2>3 · Ask</h2>
+    <div class="row" id="tasks"></div>
+    <p id="taskInfo" class="muted"></p>
+  </section>
+
+  <section id="resultCard" class="hidden">
+    <h2>4 · Answer</h2>
+    <div class="grid">
+      <div><p class="muted">What you see (names filled back in on this device)</p><pre id="answer"></pre></div>
+      <div><p class="muted">What the model returned</p><pre id="rawAnswer"></pre></div>
+    </div>
+    <p id="resultInfo" class="muted"></p>
+  </section>
+</main>
+<script type="module" src="app.js"></script>
+</body>
+</html>

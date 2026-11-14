@@ -1,0 +1,7 @@
+{
+  "hosting": {
+    "public": "app",
+    "ignore": ["firebase.json", "**/.*", "eval-set.json"],
+    "headers": [{ "source": "**/*.js", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }]
+  }
+}
