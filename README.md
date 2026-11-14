@@ -49,7 +49,7 @@ no model and no network.
 
 ## Status and limits
 
-- Tested on one machine (Chrome 155, macOS): the sample letter is scanned in about 2 seconds on-device once the model is loaded. The first scan after opening the page took about 15 seconds, because Chrome loads the model then.
+- Tested on one machine (Chrome 155, macOS): the sample letter is scanned in about 2 seconds on-device once the model is loaded. When Chrome has to load the model into memory first, the first scan took about 15 seconds.
 - A short task (Summarise) in `PREFER_ON_DEVICE` mode answered in about 2 seconds with no network request, so it ran on the device.
 - The full loop ran end to end on 14 Nov 2026: on-device detection through Firebase AI Logic (about 2 s), a reply drafted in the cloud from masked text only, and the real values filled back in locally.
 - On a 5-document fictional test set, all 24 expected personal values were masked and the document without personal data was left untouched. This is a small set, not a benchmark.
