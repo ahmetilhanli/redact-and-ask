@@ -17,8 +17,14 @@ let appCheckProbe = null; // set when App Check is initialised
 let fb = null; // { deviceModel, hybridModel, cloudModel } once Firebase is initialised
 
 // Must be called from a user gesture (Firebase requires this before the on-device model is used).
-export async function init(onProgress) {
+let initOnce = null; // concurrent callers (warm-up and scan) share one initialisation
+export function init(onProgress) {
   if (!firebaseConfig || fb) return status();
+  if (!initOnce) initOnce = doInit(onProgress).catch((e) => { initOnce = null; throw e; });
+  return initOnce;
+}
+
+async function doInit(onProgress) {
   const [{ initializeApp }, appCheck, ai] = await Promise.all([
     import(`${SDK}/firebase-app.js`), import(`${SDK}/firebase-app-check.js`), import(`${SDK}/firebase-ai.js`),
   ]);
@@ -45,6 +51,14 @@ export async function init(onProgress) {
     await Promise.race([ready, new Promise((r) => setTimeout(r, 1500))]);
   }
   return status();
+}
+
+// Loads the on-device model into memory ahead of the first scan. Chrome unloads an idle model, and reloading it
+// took 15 to 28 s in testing, so this runs on the first user gesture instead of on the scan click. Sends no user text.
+let warming = null;
+export function warm() {
+  if (!warming) warming = init().then(() => fb && fb.deviceModel.generateContent('Reply with OK.')).catch(() => {});
+  return warming;
 }
 
 export async function status() {

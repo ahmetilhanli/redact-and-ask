@@ -40,7 +40,7 @@ function renderReview() {
 async function refreshBadges() {
   const s = await ai.status();
   const d = $('deviceBadge'), c = $('cloudBadge');
-  d.textContent = s.device === 'available' ? 'On-device model ready · works offline' : `on-device model: ${s.device}`;
+  d.textContent = s.device === 'available' ? 'On-device model ready · scan uses no network' : `on-device model: ${s.device}`;
   d.className = 'badge' + (s.device === 'available' ? '' : ' warn');
   c.textContent = s.firebase ? 'cloud: Firebase AI Logic connected' : s.configured ? 'cloud: connects on first scan' : 'cloud: not configured (local-only mode)';
   c.className = 'badge' + (s.firebase ? '' : ' warn');
@@ -94,3 +94,5 @@ for (const t of TASKS) {
 }
 
 refreshBadges();
+// Warm the on-device model on the first gesture so the first scan does not wait for it to load.
+for (const ev of ['pointerdown', 'keydown']) addEventListener(ev, () => ai.warm(), { once: true, capture: true });
