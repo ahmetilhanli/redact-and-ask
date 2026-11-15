@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { detectRules, _test } from "../app/js/rules.js";
 import { parseEntities } from "../app/js/ai.js";
 import { mask, unmask, entitiesToSpans, unknownPlaceholders } from "../app/js/mask.js";
+import { parseDocs, sampleTickets } from "../app/js/batch.js";
 
 test("validators", () => {
   assert.equal(_test.ibanValid("GB33BUKB20201555555555"), true);
@@ -55,7 +56,35 @@ test("model output parser keeps only typed values that occur in the text", () =>
   assert.deepEqual(parseEntities(raw, text), [{ text: "Ana Li", type: "PERSON" }, { text: "4 Elm Road", type: "ADDRESS" }]);
 });
 
+test("model output parser drops banking and currency words returned as organisations", () => {
+  const text = "Please refund GBP 20 to IBAN GB33BUKB20201555555555. Ana Li, Acme Ltd.";
+  const raw = "ORG|IBAN\nORG|GBP\nPERSON|Ana Li\nORG|Acme Ltd\nORG|None";
+  assert.deepEqual(parseEntities(raw, text), [{ text: "Ana Li", type: "PERSON" }, { text: "Acme Ltd", type: "ORG" }]);
+});
+
 test("phone rule handles French-style groups and ignores dates, amounts and versions", () => {
   const found = detectRules("Call +33 6 12 34 56 78 or 0532 555 01 23. Due 2026-12-01, total 1,250,000 EUR, v4.2.1.").filter((s) => s.type === "PHONE").map((s) => s.text);
   assert.deepEqual(found, ["+33 6 12 34 56 78", "0532 555 01 23"]);
+});
+
+test("batch: one shared map keeps placeholders unique across documents and reuses them for the same value", () => {
+  const shared = { byValue: new Map(), counters: {}, map: {} };
+  const docs = ["Hi, this is Ana Lee.", "Ben Ross here.", "Ana Lee again, about my refund."];
+  const out = docs.map((d) => mask(d, entitiesToSpans(d, [{ text: "Ana Lee", type: "PERSON" }, { text: "Ben Ross", type: "PERSON" }]), shared).masked);
+  assert.deepEqual(out, ["Hi, this is [PERSON_1].", "[PERSON_2] here.", "[PERSON_1] again, about my refund."]);
+  assert.equal(unmask(out.join(" "), shared.map), docs.join(" "));
+});
+
+test("batch: parseDocs takes one document per line and the first CSV field", () => {
+  assert.deepEqual(parseDocs('text\n"Hi, I am Ana, call me",2026-11-15\n\nplain line\r\n"He said ""no"""'), ["Hi, I am Ana, call me", "plain line", 'He said "no"']);
+});
+
+test("batch: sample tickets are deterministic and their contact details pass the rules", () => {
+  const a = sampleTickets(200), b = sampleTickets(200);
+  assert.deepEqual(a, b);
+  assert.equal(a.length, 200);
+  const types = new Set(a.flatMap((t) => detectRules(t).map((s) => s.type)));
+  for (const t of ["EMAIL", "PHONE", "IBAN"]) assert.ok(types.has(t), t);
+  const withIban = a.filter((t) => t.includes("IBAN "));
+  assert.ok(withIban.length > 0 && withIban.every((t) => detectRules(t).some((s) => s.type === "IBAN")));
 });

@@ -27,6 +27,7 @@
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px} @media (max-width:760px){.grid{grid-template-columns:1fr}}
   .tablewrap{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:14px} td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
   .muted{color:var(--muted);font-size:13px} .hidden{display:none}
+  .count{font:700 22px/1 ui-monospace,Menlo,monospace;min-width:130px}
   input[type=text]{padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);font:inherit;min-width:220px}
 </style>
 </head>
@@ -65,6 +66,19 @@
       <div><p class="muted">What the model returned</p><pre id="rawAnswer"></pre></div>
     </div>
     <p id="resultInfo" class="muted"></p>
+  </section>
+
+  <section id="batchCard">
+    <h2>Many documents</h2>
+    <p class="muted" style="margin:0">One document per line (.txt or .csv). Every line is scanned on this device; the cloud can only receive the masked lines.</p>
+    <div class="row"><input id="batchFile" type="file" accept=".txt,.csv,text/plain,text/csv" aria-label="Load documents"><button id="batchSample">Load 500 fictional support tickets</button></div>
+    <div class="row"><button id="batchRun" class="primary" disabled>Mask all on this device</button><button id="batchStop" disabled>Stop</button><span id="batchInfo" class="muted"></span></div>
+    <p id="batchFast" class="muted" style="margin:10px 0 0"></p>
+    <div class="row"><span id="batchCount" class="count">0 / 0</span><span id="batchNet" class="badge">network requests during the batch: 0</span></div>
+    <pre id="batchPreview" class="hidden"></pre>
+    <div class="row"><button id="batchAsk" disabled>Group the issues (cloud, masked text only)</button><button id="batchDownload" disabled>Download masked lines</button></div>
+    <p id="batchAskInfo" class="muted"></p>
+    <pre id="batchAnswer" class="hidden"></pre>
   </section>
 </main>
 <script type="module" src="app.js"></script>

@@ -18,11 +18,11 @@ export function entitiesToSpans(text, entities, by = "on-device model") {
 }
 
 // Placeholders are numbered per type in order of first appearance; the same value always gets the same placeholder.
-export function mask(text, spans) {
+// Pass the same `shared` object for every document of a batch so placeholders stay unique across the batch and a
+// customer who writes twice gets the same placeholder both times.
+export function mask(text, spans, shared = { byValue: new Map(), counters: {}, map: {} }) {
   const ordered = resolveOverlaps(spans);
-  const byValue = new Map();
-  const counters = {};
-  const map = {};
+  const { byValue, counters, map } = shared;
   let out = "", pos = 0;
   for (const s of ordered) {
     const key = s.type + "\u0000" + s.text;
