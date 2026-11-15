@@ -62,11 +62,14 @@ async function doInit(onProgress) {
 
 // Loads the on-device model into memory ahead of the first scan. Chrome unloads an idle model, and reloading it
 // took 15 to 28 s in testing, so this runs on the first user gesture instead of on the scan click. Sends no user text.
-let warming = null;
+let warming = null, warmed = false;
 export function warm() {
-  if (!warming) warming = init().then(() => fb && fb.onDevice && fb.deviceModel.generateContent('Reply with OK.')).catch(() => {});
+  if (!warming) warming = init().then(() => fb && fb.onDevice && fb.deviceModel.generateContent('Reply with OK.')).then((r) => { warmed = !!r; }).catch(() => {});
   return warming;
 }
+
+// True once the warm-up call has come back from the on-device model, so the next scan does not load it.
+export const isWarm = () => warmed;
 
 export async function status() {
   const device = typeof LanguageModel === 'undefined' ? 'unavailable' : await LanguageModel.availability();

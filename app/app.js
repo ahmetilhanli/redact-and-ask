@@ -51,7 +51,7 @@ async function refreshBadges() {
 }
 
 $('scan').addEventListener('click', async () => {
-  $('scan').disabled = true; $('scanInfo').textContent = state.text ? 'scanning on this device…' : 'scanning on this device… the first scan also loads the on-device model, so it takes longer';
+  $('scan').disabled = true; $('scanInfo').textContent = state.text || ai.isWarm() ? 'scanning on this device…' : 'scanning on this device… the first scan also loads the on-device model, so it takes longer';
   state.text = $('src').value;
   const t0 = performance.now();
   state.spans = detectRules(state.text);
