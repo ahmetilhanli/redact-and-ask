@@ -49,7 +49,8 @@ no model and no network.
 
 ## Status and limits
 
-- Tested on one machine (Chrome 155, macOS): the sample letter is scanned in about 2 seconds on-device once the model is loaded. When Chrome had unloaded the idle model, a scan took 15 to 28 seconds while it loaded again; the app now warms the model on the first click or key press to hide most of that wait (the cold case has not been re-measured since).
+- Tested on one machine (Chrome 155, macOS): the sample letter is scanned in about 2 seconds on-device once the model is loaded. When Chrome had unloaded the idle model, a scan took 15 to 28 seconds while it loaded again; the app now warms the model on the first click or key press. That helps only when the user does something before scanning: on 15 Nov a scan clicked as the very first action still took 19.4 seconds.
+- **Browsers without the on-device model (fixed 15 Nov 2026).** Firebase AI Logic creates its on-device adapter only when the browser has the `LanguageModel` API; without it, a model set to `ONLY_ON_DEVICE` sent the request to the cloud. A test with the API hidden showed the raw sample letter reaching `generateContent`. The app now checks for the API itself and, when it is missing, runs the rules only and says so. Retested: no network request during the scan; IBAN, e-mail, phone and postcode masked; names and addresses left for the user to add.
 - With `fetch` blocked in the page, the privacy scan still completed and made no network request. Loading the page itself needs a connection (no service worker yet).
 - A short task (Summarise) in `PREFER_ON_DEVICE` mode answered in about 2 seconds with no network request, so it ran on the device.
 - The full loop ran end to end on 14 Nov 2026: on-device detection through Firebase AI Logic (about 2 s), a reply drafted in the cloud from masked text only, and the real values filled back in locally.

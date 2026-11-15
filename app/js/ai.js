@@ -40,6 +40,10 @@ async function doInit(onProgress) {
   }
   const backend = ai.getAI(app, { backend: new ai.GoogleAIBackend() });
   fb = {
+    // Firebase builds its on-device adapter only when the browser has the LanguageModel API. Without it, an
+    // ONLY_ON_DEVICE model sends the request to the cloud (measured 15 Nov: the raw sample letter reached
+    // generateContent). So the device model is used only when the API exists, checked here, not left to the SDK.
+    onDevice: typeof LanguageModel !== 'undefined',
     deviceModel: ai.getGenerativeModel(backend, { mode: ai.InferenceMode.ONLY_ON_DEVICE }),
     hybridModel: ai.getGenerativeModel(backend, { mode: ai.InferenceMode.PREFER_ON_DEVICE }),
     cloudModel: ai.getGenerativeModel(backend, { mode: ai.InferenceMode.ONLY_IN_CLOUD }),
@@ -57,7 +61,7 @@ async function doInit(onProgress) {
 // took 15 to 28 s in testing, so this runs on the first user gesture instead of on the scan click. Sends no user text.
 let warming = null;
 export function warm() {
-  if (!warming) warming = init().then(() => fb && fb.deviceModel.generateContent('Reply with OK.')).catch(() => {});
+  if (!warming) warming = init().then(() => fb && fb.onDevice && fb.deviceModel.generateContent('Reply with OK.')).catch(() => {});
   return warming;
 }
 
@@ -81,7 +85,7 @@ export function parseEntities(raw, text) {
 
 // On-device only. Returns { entities, engine } or throws if no on-device model exists.
 export async function detect(text) {
-  if (fb) {
+  if (fb && fb.onDevice) {
     const res = await fb.deviceModel.generateContent(DETECT_PROMPT + text);
     return { entities: parseEntities(res.response.text(), text), engine: 'Gemini Nano via Firebase AI Logic (on-device)' };
   }
@@ -102,7 +106,9 @@ export async function answer(task, maskedText) {
   const model = heavy ? fb.cloudModel : fb.hybridModel;
   const prompt = `${task.instruction}\nKeep every placeholder such as [PERSON_1] exactly as written; never guess what it stands for.\n\nText:\n${maskedText}`;
   const res = await model.generateContent(prompt);
-  return { text: res.response.text(), where: heavy ? 'cloud (masked text only)' : 'on-device preferred (cloud fallback, masked text only)' };
+  const where = heavy ? 'cloud (masked text only)'
+    : fb.onDevice ? 'on-device preferred (cloud fallback, masked text only)' : 'cloud, no on-device model in this browser (masked text only)';
+  return { text: res.response.text(), where };
 }
 
 // Reports whether App Check can attest this app: 'verified', 'off' (not initialised) or an error message.
