@@ -6,11 +6,14 @@ import { firebaseConfig, appCheckSiteKey } from './firebase-config.js';
 
 const SDK = 'https://www.gstatic.com/firebasejs/13.3.0';
 // Line format, not JSON: on this device it measured ~4x faster (2.1 s vs 8.6 s on the sample letter) because the
-// model writes far fewer tokens.
+// model writes far fewer tokens. Without the "never write a TYPE with nothing after it" line the model filled empty
+// types ("ORG|None") and sometimes broke the format: names found in 14 of 24 short tickets, against 23 of 24 with it
+// (15 Nov, 0.9 s vs 0.7 s per ticket). On the 6-document eval set both found 35 of 35; the old prompt once missed 4.
 const DETECT_PROMPT =
   'List every person name, street address, organisation, date of birth and identity number in the document. ' +
   'One per line as TYPE|exact text. TYPE is PERSON, ADDRESS, ORG, DATE_OF_BIRTH or ID_NUMBER. ' +
-  'Copy each value exactly as written. No other words.\n\nDocument:\n';
+  'Copy each value exactly as written. Write only values that occur; never write a TYPE with nothing after it. ' +
+  'No other words.\n\nDocument:\n';
 const TYPES = ['PERSON', 'ADDRESS', 'ORG', 'DATE_OF_BIRTH', 'ID_NUMBER'];
 
 let appCheckProbe = null; // set when App Check is initialised
@@ -70,6 +73,10 @@ export async function status() {
   return { firebase: !!fb, configured: !!firebaseConfig, device };
 }
 
+// Banking and currency words the model sometimes returns as an ORG. In the 500-ticket run every "refund to IBAN ..."
+// line came back with "IBAN" masked as an organisation.
+const NOT_PERSONAL = new Set(['IBAN', 'BIC', 'SWIFT', 'GBP', 'EUR', 'USD', 'TRY', 'NONE', 'N/A', 'TICKET']);
+
 export function parseEntities(raw, text) {
   const out = [];
   for (const line of raw.split('\n')) {
@@ -78,7 +85,7 @@ export function parseEntities(raw, text) {
     const type = line.slice(0, k).trim().toUpperCase();
     const value = line.slice(k + 1).trim();
     // Keep only well-typed values that really occur in the text (drops anything the model invented).
-    if (TYPES.includes(type) && value.length > 1 && text.includes(value)) out.push({ text: value, type });
+    if (TYPES.includes(type) && value.length > 1 && !NOT_PERSONAL.has(value.toUpperCase()) && text.includes(value)) out.push({ text: value, type });
   }
   return out;
 }

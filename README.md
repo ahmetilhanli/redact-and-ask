@@ -23,6 +23,34 @@ Built for the #BuildHybridAI 2026 hackathon with Firebase AI Logic hybrid infere
 Deterministic rules (`app/js/rules.js`) validate what they find: IBAN (mod 97), card numbers (Luhn), Turkish
 national ID check digits. Model findings are kept only if the value really occurs in the document.
 
+## Many documents
+
+The "Many documents" section takes one document per line (.txt or .csv, first field) or generates 500 fictional
+support tickets in the browser. Each line is scanned on the device, one after the other, with one shared
+placeholder map, so the same customer gets the same placeholder in every ticket. A counter shows the requests the
+page makes while the batch runs, measured by the browser's Resource Timing API. Afterwards the masked lines can be
+downloaded, or sent to the cloud in one request to group the tickets by problem; the real values are filled back in
+locally.
+
+The batch runs in two passes. The rules pass masks every IBAN, card, e-mail, phone and ID in all documents first,
+so the lines are safe at once; the on-device model then checks each document for names and addresses. Only lines
+the model has checked can be downloaded or sent, so stopping early never exposes a name.
+
+Measured on 15 Nov 2026 (one MacBook, Chrome 155, the 500 fictional tickets):
+
+| | Result |
+|---|---|
+| Rules pass, in the browser | 237 values in 500 tickets in 5.0 ms (in Node: 5,000 tickets in 30 ms) |
+| Model pass (Gemini Nano through Firebase AI Logic) | 500 tickets in 492 s, 0.98 s each |
+| Names / addresses / e-mails, IBANs, phones | 499 of 500 / 120 of 120 / all |
+| Over-masking | 3 lines had a non-personal word masked as an organisation |
+| Requests made by the page during the batch | 0 (Resource Timing). A browser-level capture also saw 2 requests, both from a Chrome extension, none from the page |
+| Cloud grouping of the 500 masked lines | 1.9 s, 8 groups, matching the 8 problems in the generator |
+
+What did not work: asking the cloud model to count the tickets per group (its counts added up to 378 for 500,
+so the app no longer asks for counts), and sending several tickets to Gemini Nano in one prompt (about twice as
+fast, but the output format broke and addresses were missed).
+
 ## Run it locally
 
 Requirements: Chrome 139 or newer on desktop with the on-device model available
