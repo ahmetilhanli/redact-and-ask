@@ -117,6 +117,8 @@ function loadDocs(docs, label) {
 }
 
 $('batchSample').addEventListener('click', () => loadDocs(sampleTickets(500), ' (fictional, generated in this browser)'));
+// The browser's own file control is labelled in the browser's language; this button keeps the page in English.
+$('batchPick').addEventListener('click', () => $('batchFile').click());
 $('batchFile').addEventListener('change', async (e) => {
   const f = e.target.files[0];
   if (f) loadDocs(parseDocs(await f.text()), ` from ${f.name}`);
