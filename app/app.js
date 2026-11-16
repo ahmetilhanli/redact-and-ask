@@ -2,7 +2,7 @@
 import { detectRules } from './js/rules.js';
 import { mask, unmask, entitiesToSpans, unknownPlaceholders } from './js/mask.js';
 import * as ai from './js/ai.js';
-import { parseDocs, sampleTickets } from './js/batch.js';
+import { parseDocs, sampleTicketsWithTruth, scoreMasked } from './js/batch.js';
 
 const SAMPLE = `Dear Dr. Elena Marsh,
 
@@ -95,7 +95,7 @@ for (const t of TASKS) {
 }
 
 // ---- Many documents ----
-const batch = { docs: [], rows: [], done: 0, shared: null, stop: false, from: 0, to: 0 };
+const batch = { docs: [], rows: [], done: 0, shared: null, stop: false, from: 0, to: 0, truth: null };
 // Only the first `done` rows have been checked by the model; the rest are masked by the rules alone and may still
 // contain names, so they are never downloaded or sent.
 const checked = () => batch.rows.slice(0, batch.done);
@@ -107,7 +107,8 @@ new PerformanceObserver((list) => {
 }).observe({ type: 'resource' });
 
 function loadDocs(docs, label) {
-  batch.docs = docs; batch.rows = []; batch.done = 0; batch.from = batch.to = 0;
+  batch.docs = docs; batch.rows = []; batch.done = 0; batch.from = batch.to = 0; batch.truth = null;
+  $('batchScore').textContent = '';
   $('batchFast').textContent = '';
   $('batchCount').textContent = `0 / ${docs.length}`;
   $('batchInfo').textContent = `${docs.length} documents loaded${label}`;
@@ -116,7 +117,11 @@ function loadDocs(docs, label) {
   $('batchPreview').classList.add('hidden'); $('batchAnswer').classList.add('hidden'); $('batchAskInfo').textContent = '';
 }
 
-$('batchSample').addEventListener('click', () => loadDocs(sampleTickets(500), ' (fictional, generated in this browser)'));
+$('batchSample').addEventListener('click', () => {
+  const { docs, truth } = sampleTicketsWithTruth(500);
+  loadDocs(docs, ' (fictional, generated in this browser)');
+  batch.truth = truth; // the values the generator put in, used to score the run when it ends
+});
 // The browser's own file control is labelled in the browser's language; this button keeps the page in English.
 $('batchPick').addEventListener('click', () => $('batchFile').click());
 $('batchFile').addEventListener('change', async (e) => {
@@ -168,6 +173,11 @@ $('batchRun').addEventListener('click', async () => {
   $('batchInfo').textContent = `Names and addresses: ${batch.done} documents checked by the on-device model in ${s.toFixed(0)} s (${(s / Math.max(1, batch.done)).toFixed(2)} s each) · ${Object.keys(batch.shared.map).length} distinct personal values${note}`;
   $('batchRun').disabled = false; $('batchStop').disabled = true;
   $('batchDownload').disabled = !batch.done;
+  if (batch.truth && batch.done) {
+    const sc = scoreMasked(batch.rows.slice(0, batch.done), batch.truth);
+    const leaks = sc.leaks.length ? ` · left unmasked: ${sc.leaks.slice(0, 5).join(', ')}${sc.leaks.length > 5 ? ', …' : ''}` : '';
+    $('batchScore').textContent = `Checked against the values the ticket generator put in: names masked in ${sc.names[0]} of ${sc.names[1]} tickets · addresses ${sc.addresses[0]} of ${sc.addresses[1]} · e-mails, phones and IBANs ${sc.contacts[0]} of ${sc.contacts[1]}${leaks}.`;
+  }
   await refreshBadges();
   $('batchAsk').disabled = !batch.done || $('tasks').querySelector('button').disabled;
 });
