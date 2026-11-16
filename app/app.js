@@ -25,7 +25,7 @@ const TASKS = [
 const $ = (id) => document.getElementById(id);
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const hl = (s) => esc(s).replace(/\[[A-Z_]+_\d+\]/g, (m) => `<mark>${m}</mark>`);
-const state = { text: '', spans: [], masked: '', map: {} };
+const state = { text: '', spans: [], masked: '', map: {}, modelChecked: false, userChecked: false };
 
 // ---- What left this device ----
 // The page records its own traffic: every request it makes after loading (browser Resource Timing) and, for requests
@@ -82,8 +82,13 @@ async function refreshBadges() {
   c.textContent = s.firebase ? 'cloud: Firebase AI Logic connected' : s.configured ? 'cloud: connects on first scan' : 'cloud: not configured (local-only mode)';
   c.className = 'badge' + (s.firebase ? '' : ' warn');
   if (s.firebase) ai.appCheckStatus().then((v) => { c.textContent += v === 'verified' ? ' · App Check verified' : ` · App Check: ${v}`; c.title = v; });
-  for (const b of $('tasks').querySelectorAll('button')) b.disabled = !s.firebase;
-  $('taskInfo').textContent = s.firebase ? 'Only the masked text on the left is sent.' : 'Cloud tasks are disabled until the Firebase project is configured. Masking works without it.';
+  // Without an on-device check, the masked text may still hold names and addresses: no cloud task until the user
+  // has checked it (the batch has the same rule: lines the model has not checked are never sent).
+  const unchecked = state.text && !state.modelChecked && !state.userChecked;
+  for (const b of $('tasks').querySelectorAll('button')) b.disabled = !s.firebase || unchecked;
+  $('taskInfo').textContent = !s.firebase ? 'Cloud tasks are disabled until the Firebase project is configured. Masking works without it.'
+    : unchecked ? 'Cloud tasks are off: no on-device model checked this text for names and addresses. Read it above, mask anything missed, then tick the box.'
+    : 'Only the masked text on the left is sent.';
 }
 
 $('scan').addEventListener('click', async () => {
@@ -91,18 +96,23 @@ $('scan').addEventListener('click', async () => {
   state.text = $('src').value;
   const t0 = performance.now();
   state.spans = detectRules(state.text);
+  state.modelChecked = false; state.userChecked = false; $('selfCheck').checked = false;
   let note = '';
   try {
     await ai.init((p) => { $('scanInfo').textContent = `downloading on-device model ${(p * 100).toFixed(0)}%`; });
     const { entities, engine } = await ai.detect(state.text);
     state.spans = [...state.spans, ...entitiesToSpans(state.text, entities, engine)];
+    state.modelChecked = true;
   } catch (e) { note = ' · ' + e.message; }
+  $('selfCheckRow').classList.toggle('hidden', state.modelChecked);
   renderReview();
   $('scanInfo').textContent = `${Object.keys(state.map).length} values masked in ${((performance.now() - t0) / 1000).toFixed(1)} s${note}`;
   $('resultCard').classList.add('hidden');
   $('scan').disabled = false;
   refreshBadges();
 });
+
+$('selfCheck').addEventListener('change', () => { state.userChecked = $('selfCheck').checked; refreshBadges(); });
 
 $('addExtra').addEventListener('click', () => {
   const v = $('extra').value.trim();
