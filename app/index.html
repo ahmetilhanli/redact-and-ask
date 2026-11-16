@@ -81,6 +81,13 @@
     <p id="batchAskInfo" class="muted"></p>
     <pre id="batchAnswer" class="hidden"></pre>
   </section>
+
+  <section id="netCard">
+    <h2>What left this device</h2>
+    <p class="muted" style="margin:0">Recorded by this page itself: every request it made after loading (the browser's Resource Timing) and, for the cloud model, the exact text that was sent. This log stays in the page.</p>
+    <div class="row"><span id="netCount" class="badge">requests since the page loaded: 0</span><span id="netHosts" class="muted">Nothing has left this device.</span></div>
+    <div id="netList"></div>
+  </section>
 </main>
 <script type="module" src="app.js"></script>
 </body>
