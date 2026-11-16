@@ -47,6 +47,7 @@ Measured on 15 Nov 2026 (one MacBook, Chrome 155, the 500 fictional tickets):
 | Rules pass, in the browser | 237 values in 500 tickets in 5.0 ms (in Node: 5,000 tickets in 30 ms) |
 | Model pass (Gemini Nano through Firebase AI Logic) | 500 tickets in 492 s, 0.98 s each |
 | Model pass again on 16 Nov, same machine | 500 tickets in 287 s, 0.57 s each; rules pass 8.2 ms |
+| Live site, 17 Nov, same machine | 500 tickets in 368 s, 0.74 s each; rules pass 4.3 ms; checked against the generator's values: names 498 of 500, addresses 119 of 120, e-mails/phones/IBANs 385 of 385 (misses listed on screen: tickets 1053 and 1247); 0 requests during the batch |
 | Names / addresses / e-mails, IBANs, phones | 499 of 500 / 120 of 120 / all |
 | Over-masking | 3 lines had a non-personal word masked as an organisation |
 | Requests made by the page during the batch | 0 (Resource Timing). A browser-level capture also saw 2 requests, both from a Chrome extension, none from the page |
@@ -92,6 +93,7 @@ no model and no network.
 
 - Tested on one machine (Chrome 155, macOS): the sample letter is scanned in about 2 seconds on-device once the model is loaded. When Chrome had unloaded the idle model, a scan took 15 to 28 seconds while it loaded again; the app now warms the model on the first click or key press. That helps only when the user does something before scanning: on 15 Nov a scan clicked as the very first action still took 19.4 seconds.
 - **Browsers without the on-device model (fixed 15 Nov 2026).** Firebase AI Logic creates its on-device adapter only when the browser has the `LanguageModel` API; without it, a model set to `ONLY_ON_DEVICE` sent the request to the cloud. A test with the API hidden showed the raw sample letter reaching `generateContent`. The app now checks for the API itself and, when it is missing, runs the rules only and says so. Retested: no network request during the scan; IBAN, e-mail, phone and postcode masked; names and addresses left for the user to add.
+- **Browsers without the on-device model: no cloud task until the text is checked (fixed 17 Nov 2026).** A live test with the `LanguageModel` API hidden showed that after a rules-only scan, "Draft a reply" still sent names, a date of birth and an address to the cloud. The cloud tasks now stay off after a rules-only scan until the user ticks that they have read the text and masked every name and address. Retested on the live site: 0 requests until the box is ticked.
 - With `fetch` blocked in the page, the privacy scan still completed and made no network request. Loading the page itself needs a connection (no service worker yet).
 - Network during the scan, measured 16 Nov 2026 with Playwright request events: when an earlier click had warmed the model, the scan made no network request. When the scan was the very first click on a fresh page, Firebase and App Check started during that scan and 7 GET requests loaded the reCAPTCHA Enterprise scripts; none carried document text. That cold scan took 8.4 seconds.
 - A short task (Summarise) in `PREFER_ON_DEVICE` mode answered in about 2 seconds with no network request, so it ran on the device.
