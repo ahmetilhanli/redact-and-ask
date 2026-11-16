@@ -47,18 +47,49 @@ function rng(seed) {
   return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 2 ** 32; };
 }
 
-export function sampleTickets(n = 500, seed = 7) {
+// Same tickets as before, plus the values the generator put into each one, so a run can be scored against them.
+// Every pick happens in the same order as the original one-liner, so the tickets do not change.
+export function sampleTicketsWithTruth(n = 500, seed = 7) {
   const r = rng(seed);
   const pick = (a) => a[Math.floor(r() * a.length)];
-  const out = [];
+  const docs = [], truth = [];
   for (let i = 0; i < n; i++) {
     const first = pick(FIRST), last = pick(LAST);
-    const fill = (s) => s
-      .replace('{place}', pick(PLACES))
-      .replace('{email}', `${first.toLowerCase()}.${last.toLowerCase()}@example.com`)
-      .replace('{phone}', `+44 7700 900${String(100 + Math.floor(r() * 900))}`)
-      .replace('{iban}', pick(IBANS));
-    out.push(`Ticket ${1001 + i}: Hi, this is ${first} ${last}. ${fill(pick(ISSUES))} ${fill(pick(CONTACT))}`);
+    const t = { first, last, place: null, email: null, phone: null, iban: null };
+    const fill = (s) => {
+      const place = pick(PLACES);
+      const email = `${first.toLowerCase()}.${last.toLowerCase()}@example.com`;
+      const phone = `+44 7700 900${String(100 + Math.floor(r() * 900))}`;
+      const iban = pick(IBANS);
+      if (s.includes('{place}')) t.place = place;
+      if (s.includes('{email}')) t.email = email;
+      if (s.includes('{phone}')) t.phone = phone;
+      if (s.includes('{iban}')) t.iban = iban;
+      return s.replace('{place}', place).replace('{email}', email).replace('{phone}', phone).replace('{iban}', iban);
+    };
+    const issue = fill(pick(ISSUES));
+    const contact = fill(pick(CONTACT));
+    docs.push(`Ticket ${1001 + i}: Hi, this is ${first} ${last}. ${issue} ${contact}`);
+    truth.push(t);
   }
-  return out;
+  return { docs, truth };
+}
+
+export function sampleTickets(n = 500, seed = 7) {
+  return sampleTicketsWithTruth(n, seed).docs;
+}
+
+// Scores masked rows against the generator's values. A name counts as masked only if neither the first nor the last
+// name is left in the row; every other value must be gone completely.
+export function scoreMasked(rows, truth) {
+  const s = { names: [0, 0], addresses: [0, 0], contacts: [0, 0], leaks: [] };
+  const word = (v) => new RegExp(`\\b${v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`);
+  rows.forEach((row, i) => {
+    const t = truth[i];
+    const nameLeft = word(t.first).test(row) || word(t.last).test(row);
+    s.names[1]++; if (!nameLeft) s.names[0]++; else s.leaks.push(`${1001 + i}: name`);
+    if (t.place) { s.addresses[1]++; if (!row.includes(t.place)) s.addresses[0]++; else s.leaks.push(`${1001 + i}: address`); }
+    for (const v of [t.email, t.phone, t.iban]) if (v) { s.contacts[1]++; if (!row.includes(v)) s.contacts[0]++; else s.leaks.push(`${1001 + i}: contact`); }
+  });
+  return s;
 }

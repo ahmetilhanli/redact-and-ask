@@ -4,7 +4,8 @@ import assert from "node:assert/strict";
 import { detectRules, _test } from "../app/js/rules.js";
 import { parseEntities } from "../app/js/ai.js";
 import { mask, unmask, entitiesToSpans, unknownPlaceholders } from "../app/js/mask.js";
-import { parseDocs, sampleTickets } from "../app/js/batch.js";
+import { parseDocs, sampleTickets, sampleTicketsWithTruth, scoreMasked } from "../app/js/batch.js";
+import { createHash } from "node:crypto";
 
 test("validators", () => {
   assert.equal(_test.ibanValid("GB33BUKB20201555555555"), true);
@@ -87,4 +88,32 @@ test("batch: sample tickets are deterministic and their contact details pass the
   for (const t of ["EMAIL", "PHONE", "IBAN"]) assert.ok(types.has(t), t);
   const withIban = a.filter((t) => t.includes("IBAN "));
   assert.ok(withIban.length > 0 && withIban.every((t) => detectRules(t).some((s) => s.type === "IBAN")));
+});
+
+test("sample tickets are unchanged and carry the values put into them", () => {
+  const hash = createHash("sha256").update(sampleTickets(500).join("\n")).digest("hex");
+  assert.equal(hash, "5ffe621b5ee0d818d9c42170db258e476bfcbf29fbbe8f94c5754ce8c316ab2e");
+  const { docs, truth } = sampleTicketsWithTruth(500);
+  docs.forEach((d, i) => {
+    const t = truth[i];
+    assert.ok(d.includes(`${t.first} ${t.last}`));
+    for (const v of [t.place, t.email, t.phone, t.iban]) if (v) assert.ok(d.includes(v), `${v} missing from ticket ${1001 + i}`);
+  });
+});
+
+test("scoreMasked counts what is left in each row", () => {
+  const { docs, truth } = sampleTicketsWithTruth(20);
+  const none = scoreMasked(docs, truth);
+  assert.equal(none.names[0], 0);
+  const masked = docs.map((d, i) => {
+    let r = d;
+    for (const v of Object.values(truth[i])) if (v) r = r.split(v).join("[X]");
+    return r;
+  });
+  const all = scoreMasked(masked, truth);
+  assert.deepEqual(all.names, [20, 20]);
+  assert.equal(all.leaks.length, 0);
+  // Only the last name masked: still counts as a leaked name.
+  const half = docs.map((d, i) => d.split(truth[i].last).join("[X]"));
+  assert.equal(scoreMasked(half, truth).names[0], 0);
 });
