@@ -71,7 +71,7 @@
   <section id="batchCard">
     <h2>Many documents</h2>
     <p class="muted" style="margin:0">One document per line (.txt or .csv). Every line is scanned on this device; the cloud can only receive the masked lines.</p>
-    <div class="row"><input id="batchFile" type="file" accept=".txt,.csv,text/plain,text/csv" aria-label="Load documents"><button id="batchSample">Load 500 fictional support tickets</button></div>
+    <div class="row"><input id="batchFile" class="hidden" type="file" accept=".txt,.csv,text/plain,text/csv" aria-label="Load documents"><button id="batchPick" type="button">Choose a .txt or .csv file</button><button id="batchSample">Load 500 fictional support tickets</button></div>
     <div class="row"><button id="batchRun" class="primary" disabled>Mask all on this device</button><button id="batchStop" disabled>Stop</button><span id="batchInfo" class="muted"></span></div>
     <p id="batchFast" class="muted" style="margin:10px 0 0"></p>
     <div class="row"><span id="batchCount" class="count">0 / 0</span><span id="batchNet" class="badge">network requests during the batch: 0</span></div>
