@@ -27,6 +27,42 @@ const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const hl = (s) => esc(s).replace(/\[[A-Z_]+_\d+\]/g, (m) => `<mark>${m}</mark>`);
 const state = { text: '', spans: [], masked: '', map: {} };
 
+// ---- What left this device ----
+// The page records its own traffic: every request it makes after loading (browser Resource Timing) and, for requests
+// to the cloud model, the text that was sent. The log stays in the page; nothing is sent anywhere.
+const loadedAt = performance.now();
+const pageRequests = [];
+const modelRequests = []; // newest first
+const browserFetch = window.fetch.bind(window);
+window.fetch = (input, init = {}) => {
+  try {
+    const url = new URL(typeof input === 'string' ? input : input.url, location.href);
+    const call = url.pathname.match(/:(generateContent|streamGenerateContent|countTokens)$/);
+    if (call && typeof init.body === 'string') {
+      const sent = (JSON.parse(init.body).contents || []).flatMap((c) => (c.parts || []).map((p) => p.text || '')).join('\n');
+      modelRequests.unshift({ n: modelRequests.length + 1, host: url.host, call: call[1], text: sent });
+      renderNet();
+    }
+  } catch { /* the log must never block or change a request */ }
+  return browserFetch(input, init);
+};
+new PerformanceObserver((list) => {
+  for (const e of list.getEntries()) if (e.startTime >= loadedAt) pageRequests.push(new URL(e.name).host);
+  renderNet();
+}).observe({ type: 'resource' });
+
+function renderNet() {
+  $('netCount').textContent = `requests since the page loaded: ${pageRequests.length}`;
+  $('netCount').className = 'badge' + (pageRequests.length ? ' warn' : '');
+  const byHost = {};
+  for (const h of pageRequests) byHost[h] = (byHost[h] || 0) + 1;
+  $('netHosts').textContent = pageRequests.length
+    ? 'to ' + Object.entries(byHost).map(([h, n]) => `${h} (${n})`).join(' · ')
+    : 'Nothing has left this device.';
+  $('netList').innerHTML = modelRequests.slice(0, 10).map((r) =>
+    `<p class="muted" style="margin:12px 0 6px">Cloud request ${r.n} · ${esc(r.host)} · ${r.call} · ${r.text.length} characters sent</p><pre>${hl(r.text)}</pre>`).join('');
+}
+
 $('src').value = SAMPLE;
 
 function renderReview() {
