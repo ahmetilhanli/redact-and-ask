@@ -36,12 +36,17 @@ The batch runs in two passes. The rules pass masks every IBAN, card, e-mail, pho
 so the lines are safe at once; the on-device model then checks each document for names and addresses. Only lines
 the model has checked can be downloaded or sent, so stopping early never exposes a name.
 
+The sample tickets come from a seeded generator, so the values in each ticket are known. After a run on the sample,
+the page checks every masked line against them and shows how many names, addresses and contact values were masked,
+and which tickets still hold one.
+
 Measured on 15 Nov 2026 (one MacBook, Chrome 155, the 500 fictional tickets):
 
 | | Result |
 |---|---|
 | Rules pass, in the browser | 237 values in 500 tickets in 5.0 ms (in Node: 5,000 tickets in 30 ms) |
 | Model pass (Gemini Nano through Firebase AI Logic) | 500 tickets in 492 s, 0.98 s each |
+| Model pass again on 16 Nov, same machine | 500 tickets in 287 s, 0.57 s each; rules pass 8.2 ms |
 | Names / addresses / e-mails, IBANs, phones | 499 of 500 / 120 of 120 / all |
 | Over-masking | 3 lines had a non-personal word masked as an organisation |
 | Requests made by the page during the batch | 0 (Resource Timing). A browser-level capture also saw 2 requests, both from a Chrome extension, none from the page |
@@ -50,6 +55,14 @@ Measured on 15 Nov 2026 (one MacBook, Chrome 155, the 500 fictional tickets):
 What did not work: asking the cloud model to count the tickets per group (its counts added up to 378 for 500,
 so the app no longer asks for counts), and sending several tickets to Gemini Nano in one prompt (about twice as
 fast, but the output format broke and addresses were missed).
+
+## What left this device
+
+A card at the bottom of the page shows the page's own traffic: how many requests it made after loading and where
+they went (the browser's Resource Timing), and for every request to the cloud model, the exact text that was sent,
+with placeholders highlighted. A thin `fetch` wrapper reads the request body and never blocks or changes it; the log
+stays in the page. On 16 Nov 2026, after a warm scan the card read 0 requests; after "Draft a reply" it showed one
+request to `firebasevertexai.googleapis.com` carrying placeholders only.
 
 ## Run it locally
 
