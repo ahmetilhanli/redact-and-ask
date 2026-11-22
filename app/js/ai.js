@@ -56,7 +56,7 @@ async function doInit(onProgress) {
   }
   // Remote Config is fetched in the background; a task waits for it at most 3 s, then uses the last known values.
   const config = rc.getRemoteConfig(app);
-  config.settings.minimumFetchIntervalMillis = 10 * 60 * 1000;
+  config.settings.minimumFetchIntervalMillis = 60 * 1000; // a routing change reaches open pages within about a minute
   config.defaultConfig = ROUTING_DEFAULTS;
   routingReady = rc.fetchAndActivate(config).then(() => {
     const src = rc.getValue(config, 'heavy_task_min_chars').getSource();
