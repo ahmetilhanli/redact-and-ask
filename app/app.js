@@ -182,7 +182,6 @@ async function renderHistory() {
   const reveal = $('historyReveal').checked;
   $('historyList').innerHTML = items.length ? items.map((it) => `<div class="hist"><p class="muted">${esc(when(it.createdAt))} · ${esc(it.task)} · ${esc(it.where)} · ${it.values} values masked</p><pre>${hl(reveal ? unmask(it.answer, state.map) : it.answer)}</pre></div>`).join('')
     : '<p class="muted">Nothing saved yet.</p>';
-  $('historyCard').classList.remove('hidden');
 }
 $('saveHistory').addEventListener('click', async () => {
   $('saveHistory').disabled = true; $('savedInfo').textContent = 'saving…';
@@ -192,7 +191,7 @@ $('saveHistory').addEventListener('click', async () => {
     await renderHistory();
   } catch (e) { $('savedInfo').textContent = `Not saved: ${e.message}`; $('saveHistory').disabled = false; }
 });
-$('showHistory').addEventListener('click', () => renderHistory().catch((e) => { $('savedInfo').textContent = `History unavailable: ${e.message}`; }));
+$('showHistory').addEventListener('click', () => renderHistory().catch((e) => { $('historyList').innerHTML = `<p class="muted">History unavailable: ${esc(e.message)}</p>`; }));
 $('historyReveal').addEventListener('change', () => renderHistory().catch(() => {}));
 
 for (const t of TASKS) {
