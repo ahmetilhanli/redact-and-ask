@@ -75,14 +75,14 @@
     </div>
     <div id="answerCheck" class="check"></div>
     <p id="resultInfo" class="muted"></p>
-    <div class="row"><button id="saveHistory">Save a masked copy (Firestore)</button><button id="showHistory">My masked history</button><span id="savedInfo" class="muted"></span></div>
+    <div class="row"><button id="saveHistory">Save a masked copy (Firestore)</button><span id="savedInfo" class="muted"></span></div>
   </section>
 
-  <section id="historyCard" class="hidden">
+  <section id="historyCard">
     <h2>Masked history</h2>
-    <p class="muted" style="margin:0">Stored in Cloud Firestore under an anonymous Firebase account. An entry holds the masked text and the answer with placeholders, never the real values. The placeholder map lives only in this tab: after a reload, nobody can fill the values back in, including this app's backend.</p>
+    <p class="muted" style="margin:0">Stored in Cloud Firestore under an anonymous Firebase account. An entry holds the masked text and the answer with placeholders, never the real values. The placeholder map is never stored: it lives only in this tab, so after a reload the values cannot be filled back in without the original document, not even by this app's backend.</p>
+    <div class="row"><button id="showHistory">Show my masked history</button><label class="muted"><input type="checkbox" id="historyReveal"> Fill in real values where this tab still has the map</label></div>
     <div id="historyList"></div>
-    <label class="muted"><input type="checkbox" id="historyReveal"> Fill in real values where this tab still has the map</label>
   </section>
 
   <section id="batchCard">

@@ -1,14 +1,15 @@
 // Masked history: Firebase Authentication (anonymous) + Cloud Firestore. A saved entry holds only the masked text
 // and the model's answer with placeholders. The placeholder map stays in this tab's memory and is never stored, so
 // after a reload not even the owner (or this app's backend) can see the real values again.
-import { getFirebaseApp, SDK } from './ai.js';
+import { getFirebaseApp, init, SDK } from './ai.js';
 
 let ready = null;
 
 function connect() {
   if (!ready) ready = (async () => {
+    if (!getFirebaseApp()) await init();
     const app = getFirebaseApp();
-    if (!app) throw new Error('Run a scan first: it connects Firebase.');
+    if (!app) throw new Error('Firebase is not configured.');
     const [auth, fs] = await Promise.all([import(`${SDK}/firebase-auth.js`), import(`${SDK}/firebase-firestore.js`)]);
     const a = auth.getAuth(app);
     const user = a.currentUser || (await auth.signInAnonymously(a)).user;
