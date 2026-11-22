@@ -1,0 +1,18 @@
+rules_version = '2';
+// Masked history. Each anonymous user can read and write only their own entries, and an entry may hold only the
+// masked text, the answer with placeholders, the task name, where it ran and a value count. No field for real values.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{uid}/history/{entry} {
+      allow read, delete: if request.auth != null && request.auth.uid == uid;
+      allow create: if request.auth != null && request.auth.uid == uid
+        && request.resource.data.keys().hasOnly(['task', 'where', 'masked', 'answer', 'values', 'createdAt'])
+        && request.resource.data.task is string && request.resource.data.task.size() <= 60
+        && request.resource.data.where is string && request.resource.data.where.size() <= 120
+        && request.resource.data.masked is string && request.resource.data.masked.size() <= 6000
+        && request.resource.data.answer is string && request.resource.data.answer.size() <= 6000
+        && request.resource.data.values is int
+        && request.resource.data.createdAt == request.time;
+    }
+  }
+}

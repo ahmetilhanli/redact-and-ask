@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="google" content="notranslate">
 <title>Redact &amp; Ask</title>
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js">
 <link rel="modulepreload" href="https://www.gstatic.com/firebasejs/13.3.0/firebase-app-check.js">
@@ -27,6 +28,7 @@
   mark.bad{background:var(--warn-bg);color:var(--warn)}
   .check{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--accent-bg);font-size:14px} .check.bad{background:var(--warn-bg)} .check div{margin-top:6px}
   button.small{font-size:13px;padding:4px 10px}
+  .hist{border-top:1px solid var(--line);margin-top:10px;padding-top:6px} .hist p{margin:0 0 4px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px} @media (max-width:760px){.grid{grid-template-columns:1fr}}
   .tablewrap{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:14px} td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
   .muted{color:var(--muted);font-size:13px} .hidden{display:none}
@@ -61,6 +63,7 @@
     <h2>3 · Ask</h2>
     <div class="row" id="tasks"></div>
     <p id="taskInfo" class="muted"></p>
+    <p id="routingInfo" class="muted"></p>
   </section>
 
   <section id="resultCard" class="hidden">
@@ -71,6 +74,14 @@
     </div>
     <div id="answerCheck" class="check"></div>
     <p id="resultInfo" class="muted"></p>
+    <div class="row"><button id="saveHistory">Save a masked copy (Firestore)</button><button id="showHistory">My masked history</button><span id="savedInfo" class="muted"></span></div>
+  </section>
+
+  <section id="historyCard" class="hidden">
+    <h2>Masked history</h2>
+    <p class="muted" style="margin:0">Stored in Cloud Firestore under an anonymous Firebase account. An entry holds the masked text and the answer with placeholders, never the real values. The placeholder map lives only in this tab: after a reload, nobody can fill the values back in, including this app's backend.</p>
+    <div id="historyList"></div>
+    <label class="muted"><input type="checkbox" id="historyReveal"> Fill in real values where this tab still has the map</label>
   </section>
 
   <section id="batchCard">
