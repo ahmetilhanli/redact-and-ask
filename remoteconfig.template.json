@@ -1,0 +1,14 @@
+{
+  "parameters": {
+    "heavy_task_min_chars": {
+      "defaultValue": { "value": "2500" },
+      "description": "Masked text longer than this goes to the cloud model; shorter tasks prefer the on-device model.",
+      "valueType": "NUMBER"
+    },
+    "cloud_tasks_enabled": {
+      "defaultValue": { "value": "true" },
+      "description": "Kill switch. false keeps every task on the device; the cloud model is never called.",
+      "valueType": "BOOLEAN"
+    }
+  }
+}

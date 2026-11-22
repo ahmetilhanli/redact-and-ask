@@ -18,6 +18,17 @@ const TYPES = ['PERSON', 'ADDRESS', 'ORG', 'DATE_OF_BIRTH', 'ID_NUMBER'];
 
 let appCheckProbe = null; // set when App Check is initialised
 let fb = null; // { deviceModel, hybridModel, cloudModel } once Firebase is initialised
+let firebaseApp = null;
+
+// Routing is tuned from Firebase Remote Config, so a team can change it without a new release:
+// heavy_task_min_chars: masked text longer than this goes to the cloud model; shorter tasks prefer the device.
+// cloud_tasks_enabled: false keeps every task on the device (the cloud is never called).
+const ROUTING_DEFAULTS = { heavy_task_min_chars: 2500, cloud_tasks_enabled: true };
+let routingState = { heavyMinChars: ROUTING_DEFAULTS.heavy_task_min_chars, cloudEnabled: true, source: 'built-in defaults' };
+let routingReady = Promise.resolve();
+export const routing = () => routingState;
+export const getFirebaseApp = () => firebaseApp;
+export { SDK };
 
 // Must be called from a user gesture (Firebase requires this before the on-device model is used).
 let initOnce = null; // concurrent callers (warm-up and scan) share one initialisation
@@ -28,10 +39,12 @@ export function init(onProgress) {
 }
 
 async function doInit(onProgress) {
-  const [{ initializeApp }, appCheck, ai] = await Promise.all([
+  const [{ initializeApp }, appCheck, ai, rc] = await Promise.all([
     import(`${SDK}/firebase-app.js`), import(`${SDK}/firebase-app-check.js`), import(`${SDK}/firebase-ai.js`),
+    import(`${SDK}/firebase-remote-config.js`),
   ]);
   const app = initializeApp(firebaseConfig);
+  firebaseApp = app;
   // App Check: on the hosted domain reCAPTCHA Enterprise attests the app. On localhost the site key is not valid,
   // so App Check runs only if a debug token was stored with localStorage.setItem('appCheckDebugToken', '<token>').
   const local = ['localhost', '127.0.0.1'].includes(location.hostname);
@@ -41,6 +54,18 @@ async function doInit(onProgress) {
     const instance = appCheck.initializeAppCheck(app, { provider: new appCheck.ReCaptchaEnterpriseProvider(appCheckSiteKey), isTokenAutoRefreshEnabled: true });
     appCheckProbe = () => appCheck.getToken(instance, false);
   }
+  // Remote Config is fetched in the background; a task waits for it at most 3 s, then uses the last known values.
+  const config = rc.getRemoteConfig(app);
+  config.settings.minimumFetchIntervalMillis = 10 * 60 * 1000;
+  config.defaultConfig = ROUTING_DEFAULTS;
+  routingReady = rc.fetchAndActivate(config).then(() => {
+    const src = rc.getValue(config, 'heavy_task_min_chars').getSource();
+    routingState = {
+      heavyMinChars: rc.getNumber(config, 'heavy_task_min_chars') || ROUTING_DEFAULTS.heavy_task_min_chars,
+      cloudEnabled: rc.getBoolean(config, 'cloud_tasks_enabled'),
+      source: src === 'remote' ? 'Firebase Remote Config' : 'built-in defaults',
+    };
+  }).catch(() => {});
   const backend = ai.getAI(app, { backend: new ai.GoogleAIBackend() });
   fb = {
     // Firebase builds its on-device adapter only when the browser has the LanguageModel API. Without it, an
@@ -112,9 +137,18 @@ export async function detect(text) {
 // Runs a task on MASKED text. Long input or reasoning tasks go to the cloud; short ones prefer the device.
 export async function answer(task, maskedText) {
   if (!fb) throw new Error('Cloud tasks need the Firebase project to be configured.');
-  const heavy = maskedText.length > 2500 || task.heavy;
-  const model = heavy ? fb.cloudModel : fb.hybridModel;
+  await Promise.race([routingReady, new Promise((r) => setTimeout(r, 3000))]);
+  const { heavyMinChars, cloudEnabled } = routingState;
+  const heavy = maskedText.length > heavyMinChars || task.heavy;
   const prompt = `${task.instruction}\nKeep every placeholder such as [PERSON_1] exactly as written; never guess what it stands for.\n\nText:\n${maskedText}`;
+  if (!cloudEnabled) {
+    // Cloud switched off in Remote Config: only the on-device model may answer, and heavy tasks are refused.
+    if (heavy) throw new Error('Cloud tasks are switched off for this team (Remote Config). This task needs the cloud model.');
+    if (!fb.onDevice) throw new Error('Cloud tasks are switched off for this team (Remote Config), and this browser has no on-device model.');
+    const res = await fb.deviceModel.generateContent(prompt);
+    return { text: res.response.text(), where: 'on this device only (cloud switched off in Remote Config)' };
+  }
+  const model = heavy ? fb.cloudModel : fb.hybridModel;
   const res = await model.generateContent(prompt);
   const where = heavy ? 'cloud (masked text only)'
     : fb.onDevice ? 'on-device preferred (cloud fallback, masked text only)' : 'cloud, no on-device model in this browser (masked text only)';

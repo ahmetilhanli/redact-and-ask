@@ -3,6 +3,7 @@ import { detectRules } from './js/rules.js';
 import { mask, unmask, entitiesToSpans, checkAnswer } from './js/mask.js';
 import * as ai from './js/ai.js';
 import { parseDocs, sampleTicketsWithTruth, scoreMasked } from './js/batch.js';
+import * as history from './js/history.js';
 
 const SAMPLE = `Dear Dr. Elena Marsh,
 
@@ -110,6 +111,7 @@ $('scan').addEventListener('click', async () => {
   $('resultCard').classList.add('hidden');
   $('scan').disabled = false;
   refreshBadges();
+  showRouting(); setTimeout(showRouting, 3000); // Remote Config arrives in the background
 });
 
 $('selfCheck').addEventListener('change', () => { state.userChecked = $('selfCheck').checked; refreshBadges(); });
@@ -152,6 +154,33 @@ function renderAnswer() {
   }
 }
 
+function showRouting() {
+  const r = ai.routing();
+  $('routingInfo').textContent = !r.cloudEnabled
+    ? `Routing (${r.source}): cloud tasks are switched off; every task stays on this device.`
+    : `Routing (${r.source}): masked text over ${r.heavyMinChars.toLocaleString('en-US')} characters, replies and translations go to the cloud model; shorter tasks prefer this device.`;
+}
+
+// ---- Masked history (Firebase Authentication + Cloud Firestore) ----
+const when = (ts) => (ts && ts.toDate ? ts.toDate().toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) : 'just now');
+async function renderHistory() {
+  const items = await history.list(5);
+  const reveal = $('historyReveal').checked;
+  $('historyList').innerHTML = items.length ? items.map((it) => `<div class="hist"><p class="muted">${esc(when(it.createdAt))} · ${esc(it.task)} · ${esc(it.where)} · ${it.values} values masked</p><pre>${hl(reveal ? unmask(it.answer, state.map) : it.answer)}</pre></div>`).join('')
+    : '<p class="muted">Nothing saved yet.</p>';
+  $('historyCard').classList.remove('hidden');
+}
+$('saveHistory').addEventListener('click', async () => {
+  $('saveHistory').disabled = true; $('savedInfo').textContent = 'saving…';
+  try {
+    const doc = await history.save({ task: state.lastTask, where: state.lastWhere, masked: state.masked, answer: state.answer, values: Object.keys(state.map).length });
+    $('savedInfo').textContent = `Saved to Firestore: task, where it ran, the masked text (${doc.masked.length} characters), the answer with placeholders and a count of ${doc.values} values. No real values.`;
+    await renderHistory();
+  } catch (e) { $('savedInfo').textContent = `Not saved: ${e.message}`; $('saveHistory').disabled = false; }
+});
+$('showHistory').addEventListener('click', () => renderHistory().catch((e) => { $('savedInfo').textContent = `History unavailable: ${e.message}`; }));
+$('historyReveal').addEventListener('change', () => renderHistory().catch(() => {}));
+
 for (const t of TASKS) {
   const b = document.createElement('button');
   b.textContent = t.label; b.disabled = true;
@@ -159,12 +188,14 @@ for (const t of TASKS) {
     $('taskInfo').textContent = `${t.label}: working…`;
     try {
       const { text, where } = await ai.answer(t, state.masked);
-      state.answer = text;
+      state.answer = text; state.lastTask = t.label; state.lastWhere = where;
       renderAnswer();
       $('resultInfo').textContent = `Ran: ${where}.`;
+      $('saveHistory').disabled = false; $('savedInfo').textContent = '';
       $('resultCard').classList.remove('hidden');
       $('taskInfo').textContent = 'Only the masked text on the left was sent.';
     } catch (e) { $('taskInfo').textContent = `${t.label} failed: ${e.message}`; }
+    showRouting();
   });
   $('tasks').appendChild(b);
 }
