@@ -1,6 +1,6 @@
 // Redact & Ask — UI wiring. All sample text is fictional.
 import { detectRules } from './js/rules.js';
-import { mask, unmask, entitiesToSpans, unknownPlaceholders } from './js/mask.js';
+import { mask, unmask, entitiesToSpans, checkAnswer } from './js/mask.js';
 import * as ai from './js/ai.js';
 import { parseDocs, sampleTicketsWithTruth, scoreMasked } from './js/batch.js';
 
@@ -25,7 +25,7 @@ const TASKS = [
 const $ = (id) => document.getElementById(id);
 const esc = (s) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
 const hl = (s) => esc(s).replace(/\[[A-Z_]+_\d+\]/g, (m) => `<mark>${m}</mark>`);
-const state = { text: '', spans: [], masked: '', map: {}, modelChecked: false, userChecked: false };
+const state = { text: '', spans: [], masked: '', map: {}, modelChecked: false, userChecked: false, answer: '' };
 
 // ---- What left this device ----
 // The page records its own traffic: every request it makes after loading (browser Resource Timing) and, for requests
@@ -122,6 +122,36 @@ $('addExtra').addEventListener('click', () => {
   renderReview();
 });
 
+// The answer is checked on this device before anything is filled back in (mask.js checkAnswer).
+function renderAnswer() {
+  const text = state.answer;
+  const check = checkAnswer(text, state.map);
+  const invented = new Set(check.unknown.map((u) => u.placeholder));
+  $('rawAnswer').innerHTML = esc(text).replace(/\[\s*[A-Za-z_]+?_\d+\s*\]/g, (m) => `<mark${invented.has(m) ? ' class="bad"' : ''}>${m}</mark>`);
+  $('answer').textContent = unmask(text, state.map);
+  const box = $('answerCheck');
+  box.innerHTML = `<strong>Answer check, on this device:</strong> ${check.restored} placeholder${check.restored === 1 ? '' : 's'} filled back in`
+    + ` · your real values found in the answer: <strong>${check.realValues.length} of ${check.valuesChecked}</strong>`;
+  box.classList.toggle('bad', check.unknown.length > 0 || check.realValues.length > 0);
+  for (const u of check.unknown) {
+    const line = document.createElement('div');
+    line.textContent = `${u.placeholder} is not one of your placeholders: the model made it up, so it is left as it is. `;
+    if (u.suggestion) {
+      const b = document.createElement('button');
+      b.className = 'small';
+      b.textContent = `Use ${u.suggestion} instead`;
+      b.addEventListener('click', () => { state.answer = state.answer.split(u.placeholder).join(u.suggestion); renderAnswer(); });
+      line.append(`It most likely means ${u.suggestion}. `, b);
+    }
+    box.appendChild(line);
+  }
+  if (check.realValues.length) {
+    const line = document.createElement('div');
+    line.textContent = 'The cloud never received these values, so the model guessed them. Check them before you use the answer.';
+    box.appendChild(line);
+  }
+}
+
 for (const t of TASKS) {
   const b = document.createElement('button');
   b.textContent = t.label; b.disabled = true;
@@ -129,10 +159,9 @@ for (const t of TASKS) {
     $('taskInfo').textContent = `${t.label}: working…`;
     try {
       const { text, where } = await ai.answer(t, state.masked);
-      const unknown = unknownPlaceholders(text, state.map);
-      $('rawAnswer').innerHTML = hl(text);
-      $('answer').textContent = unmask(text, state.map);
-      $('resultInfo').textContent = `Ran: ${where}.` + (unknown.length ? ` The answer mentions placeholders that are not in your map: ${unknown.join(', ')}.` : '');
+      state.answer = text;
+      renderAnswer();
+      $('resultInfo').textContent = `Ran: ${where}.`;
       $('resultCard').classList.remove('hidden');
       $('taskInfo').textContent = 'Only the masked text on the left was sent.';
     } catch (e) { $('taskInfo').textContent = `${t.label} failed: ${e.message}`; }

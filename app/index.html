@@ -24,6 +24,9 @@
   .badge.warn{background:var(--warn-bg);color:var(--warn)}
   pre{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:12px;margin:0;font:14px/1.6 ui-monospace,Menlo,monospace}
   mark{background:var(--accent-bg);color:var(--accent);border-radius:4px;padding:0 3px;font-weight:600}
+  mark.bad{background:var(--warn-bg);color:var(--warn)}
+  .check{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--accent-bg);font-size:14px} .check.bad{background:var(--warn-bg)} .check div{margin-top:6px}
+  button.small{font-size:13px;padding:4px 10px}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px} @media (max-width:760px){.grid{grid-template-columns:1fr}}
   .tablewrap{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:14px} td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
   .muted{color:var(--muted);font-size:13px} .hidden{display:none}
@@ -66,6 +69,7 @@
       <div><p class="muted">What you see (names filled back in on this device)</p><pre id="answer"></pre></div>
       <div><p class="muted">What the model returned</p><pre id="rawAnswer"></pre></div>
     </div>
+    <div id="answerCheck" class="check"></div>
     <p id="resultInfo" class="muted"></p>
   </section>
 

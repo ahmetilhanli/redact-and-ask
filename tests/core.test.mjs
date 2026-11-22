@@ -3,7 +3,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { detectRules, _test } from "../app/js/rules.js";
 import { parseEntities } from "../app/js/ai.js";
-import { mask, unmask, entitiesToSpans, unknownPlaceholders } from "../app/js/mask.js";
+import { mask, unmask, entitiesToSpans, unknownPlaceholders, suggestPlaceholder, checkAnswer } from "../app/js/mask.js";
 import { parseDocs, sampleTickets, sampleTicketsWithTruth, scoreMasked } from "../app/js/batch.js";
 import { createHash } from "node:crypto";
 
@@ -42,6 +42,24 @@ test("unmask tolerates spacing and case, and reports invented placeholders", () 
   const map = { "[PERSON_1]": { value: "Ana", type: "PERSON" } };
   assert.equal(unmask("Hi [ person_1 ] and [Person_1].", map), "Hi Ana and Ana.");
   assert.deepEqual(unknownPlaceholders("Hi [PERSON_1] and [PERSON_7].", map), ["[PERSON_7]"]);
+});
+
+test("answer check: restored placeholders, invented ones with a suggestion, real values in the answer", () => {
+  const map = {
+    "[PERSON_1]": { value: "Elena Marsh", type: "PERSON" },
+    "[PERSON_2]": { value: "Tomasz Wieczorek", type: "PERSON" },
+    "[IBAN_1]": { value: "GB33BUKB20201555555555", type: "IBAN" },
+  };
+  assert.equal(suggestPlaceholder("[IB_1]", map), "[IBAN_1]");
+  assert.equal(suggestPlaceholder("[PERSN_2]", map), "[PERSON_2]");
+  assert.equal(suggestPlaceholder("[PERSON_9]", map), null);
+  assert.equal(suggestPlaceholder("[EMAIL_1]", map), null);
+  const clean = checkAnswer("Dear [PERSON_1], the refund for [PERSON_2] goes to [IBAN_1].", map);
+  assert.deepEqual(clean, { restored: 3, unknown: [], realValues: [], valuesChecked: 3 });
+  const bad = checkAnswer("Dear [Person_1], refund to [IB_1]. Regards, tomasz wieczorek", map);
+  assert.equal(bad.restored, 1);
+  assert.deepEqual(bad.unknown, [{ placeholder: "[IB_1]", suggestion: "[IBAN_1]" }]);
+  assert.deepEqual(bad.realValues, ["Tomasz Wieczorek"]);
 });
 
 test("longer span wins on overlap (address beats postcode inside it)", () => {
