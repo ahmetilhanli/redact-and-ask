@@ -23,6 +23,25 @@ Built for the #BuildHybridAI 2026 hackathon with Firebase AI Logic hybrid infere
 Deterministic rules (`app/js/rules.js`) validate what they find: IBAN (mod 97), card numbers (Luhn), Turkish
 national ID check digits. Model findings are kept only if the value really occurs in the document.
 
+## Answer check
+
+Before anything is filled back in, the device checks the answer (`checkAnswer` in `app/js/mask.js`):
+- how many placeholders were filled back in;
+- any placeholder the model invented, with the one it most likely meant (same number, shortened or misspelt type,
+  e.g. `[IB_1]` → `[IBAN_1]`); it is applied only when the user clicks;
+- how many of the real values appear in the answer. The cloud never received them, so any hit is a leak or a guess.
+
+## Other Firebase products
+
+- **App Check** (reCAPTCHA Enterprise) on the hosted site.
+- **Remote Config** sets the routing: `heavy_task_min_chars` (masked text longer than this goes to the cloud model;
+  2500) and `cloud_tasks_enabled` (`false` keeps every task on the device: heavy tasks are refused, short ones run on
+  Gemini Nano). The page shows which values are in effect. Template: `remoteconfig.template.json`.
+- **Authentication (anonymous) + Cloud Firestore (eur3): masked history.** An entry holds the task, where it ran, the
+  masked text, the answer with placeholders and a value count, never the real values. `firestore.rules` allows only
+  those fields and only for the owner. The placeholder map is never stored: after a reload the values cannot be filled
+  back in without the original document, not even by this app's backend.
+
 ## Many documents
 
 The "Many documents" section takes one document per line (.txt or .csv, first field) or generates 500 fictional
@@ -52,6 +71,7 @@ Measured on 15 Nov 2026 (one MacBook, Chrome 155, the 500 fictional tickets):
 | Over-masking | 3 lines had a non-personal word masked as an organisation |
 | Requests made by the page during the batch | 0 (Resource Timing). A browser-level capture also saw 2 requests, both from a Chrome extension, none from the page |
 | Cloud grouping of the 500 masked lines | 1.9 s, 8 groups, matching the 8 problems in the generator |
+| Live site, 22 Nov, same machine (film take) | Rules pass 237 values in 7.5 ms; model pass 294 s, 0.59 s each, 596 distinct values; names 498 of 500, addresses 120 of 120, e-mails/phones/IBANs 385 of 385 (misses listed: tickets 1111 and 1332, which then went to the cloud with the grouping request); 0 requests during the batch; grouping: 8 groups, about 2 s |
 
 What did not work: asking the cloud model to count the tickets per group (its counts added up to 378 for 500,
 so the app no longer asks for counts), and sending several tickets to Gemini Nano in one prompt (about twice as
@@ -64,6 +84,10 @@ they went (the browser's Resource Timing), and for every request to the cloud mo
 with placeholders highlighted. A thin `fetch` wrapper reads the request body and never blocks or changes it; the log
 stays in the page. On 16 Nov 2026, after a warm scan the card read 0 requests; after "Draft a reply" it showed one
 request to `firebasevertexai.googleapis.com` carrying placeholders only.
+
+Each host is listed with what it is for and what the app hands it: the cloud model and the masked history get masked
+text only; App Check, reCAPTCHA, Remote Config, the installation ID and anonymous sign-in get no document text. A host
+that is not on that list shows as unexpected.
 
 ## Run it locally
 
@@ -86,13 +110,13 @@ then put the web config into `app/js/firebase-config.js`.
 node --test tests/core.test.mjs
 ```
 
-The tests cover the validators, the masking and re-identification logic and the model-output parser. They use
-no model and no network.
+The tests (14) cover the validators, the masking and re-identification logic, the model-output parser, the answer
+check and the batch score. They use no model and no network.
 
 ## Status and limits
 
 - Tested on one machine (Chrome 155, macOS): the sample letter is scanned in about 2 seconds on-device once the model is loaded. When Chrome had unloaded the idle model, a scan took 15 to 28 seconds while it loaded again; the app now warms the model on the first click or key press. That helps only when the user does something before scanning: on 15 Nov a scan clicked as the very first action still took 19.4 seconds.
-- **Browsers without the on-device model (fixed 15 Nov 2026).** Firebase AI Logic creates its on-device adapter only when the browser has the `LanguageModel` API; without it, a model set to `ONLY_ON_DEVICE` sent the request to the cloud. A test with the API hidden showed the raw sample letter reaching `generateContent`. The app now checks for the API itself and, when it is missing, runs the rules only and says so. Retested: no network request during the scan; IBAN, e-mail, phone and postcode masked; names and addresses left for the user to add.
+- **Browsers without the on-device model (fixed 15 Nov 2026).** Firebase AI Logic creates its on-device adapter only when the browser has the `LanguageModel` API; without it, a model set to `ONLY_ON_DEVICE` sent the request to the cloud (Firebase JS SDK 13.3.0). A test with the API hidden showed the raw sample letter reaching `generateContent`. The app now checks for the API itself and, when it is missing, runs the rules only and says so. Reported upstream with a fix: firebase/firebase-js-sdk issue #10635, PR #10636. Retested: no network request during the scan; IBAN, e-mail, phone and postcode masked; names and addresses left for the user to add.
 - **Browsers without the on-device model: no cloud task until the text is checked (fixed 17 Nov 2026).** A live test with the `LanguageModel` API hidden showed that after a rules-only scan, "Draft a reply" still sent names, a date of birth and an address to the cloud. The cloud tasks now stay off after a rules-only scan until the user ticks that they have read the text and masked every name and address. Retested on the live site: 0 requests until the box is ticked.
 - With `fetch` blocked in the page, the privacy scan still completed and made no network request. Loading the page itself needs a connection (no service worker yet).
 - Network during the scan, measured 16 Nov 2026 with Playwright request events: when an earlier click had warmed the model, the scan made no network request. When the scan was the very first click on a fresh page, Firebase and App Check started during that scan and 7 GET requests loaded the reCAPTCHA Enterprise scripts; none carried document text. That cold scan took 8.4 seconds.
