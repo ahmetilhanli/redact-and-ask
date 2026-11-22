@@ -57,3 +57,41 @@ export function unknownPlaceholders(text, map) {
   }
   return [...out];
 }
+
+function editDistance(a, b) {
+  const d = Array.from({ length: a.length + 1 }, (_, i) => [i, ...Array(b.length).fill(0)]);
+  for (let j = 1; j <= b.length; j++) d[0][j] = j;
+  for (let i = 1; i <= a.length; i++)
+    for (let j = 1; j <= b.length; j++)
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[a.length][b.length];
+}
+
+// The one placeholder of the map an invented one most likely stands for: same number, and a type that is a
+// shortened or misspelt form of it ("[IB_1]" -> "[IBAN_1]"). Returns null unless exactly one placeholder fits.
+export function suggestPlaceholder(invented, map) {
+  const m = invented.match(/^\[\s*([A-Za-z_]+?)_(\d+)\s*\]$/);
+  if (!m) return null;
+  const type = m[1].toUpperCase();
+  const fits = Object.keys(map).filter((ph) => {
+    const [, t, n] = ph.match(/^\[([A-Z_]+)_(\d+)\]$/);
+    return n === m[2] && (t.startsWith(type) || type.startsWith(t) || editDistance(t, type) <= 2);
+  });
+  return fits.length === 1 ? fits[0] : null;
+}
+
+// On-device check of an answer before it is shown: which placeholders are filled back in, which ones the model
+// invented (with the placeholder each most likely stands for), and whether any real value appears in the answer.
+// The cloud never received the real values, so a real value in its answer would be a leak or a guess.
+export function checkAnswer(text, map) {
+  const restored = new Set(), unknown = [];
+  for (const m of text.matchAll(PH)) {
+    const ph = `[${m[1].toUpperCase()}_${m[2]}]`;
+    if (map[ph]) restored.add(ph);
+    else if (!unknown.some((u) => u.placeholder === m[0])) unknown.push({ placeholder: m[0], suggestion: suggestPlaceholder(m[0], map) });
+  }
+  const lower = text.toLowerCase();
+  const values = [...new Set(Object.values(map).map((v) => v.value))];
+  const realValues = values.filter((v) => v.trim().length >= 3 && lower.includes(v.toLowerCase()));
+  return { restored: restored.size, unknown, realValues, valuesChecked: values.length };
+}
