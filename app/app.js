@@ -52,13 +52,27 @@ new PerformanceObserver((list) => {
   renderNet();
 }).observe({ type: 'resource' });
 
+// What each host is for, and what this app hands it. Anything not listed is shown as unexpected.
+const HOSTS = [
+  [/^firebasevertexai\.googleapis\.com$/, 'cloud model (Firebase AI Logic)', 'masked text only, shown below'],
+  [/^firestore\.googleapis\.com$/, 'masked history (only when you save)', 'masked text only'],
+  [/^(identitytoolkit|securetoken)\.googleapis\.com$/, 'anonymous sign-in for the history', 'no document text'],
+  [/^firebaseremoteconfig\.googleapis\.com$/, 'Remote Config (routing)', 'no document text'],
+  [/^firebaseinstallations\.googleapis\.com$/, 'Remote Config installation ID', 'no document text'],
+  [/^content-firebaseappcheck\.googleapis\.com$/, 'App Check token', 'no document text'],
+  [/^www\.(google|gstatic)\.com$/, 'reCAPTCHA for App Check, Firebase SDK files', 'no document text'],
+  [new RegExp('^' + location.hostname.replace(/\./g, '\\.') + '$'), "this app's own files", 'no document text'],
+];
 function renderNet() {
   $('netCount').textContent = `requests since the page loaded: ${pageRequests.length}`;
   $('netCount').className = 'badge' + (pageRequests.length ? ' warn' : '');
   const byHost = {};
   for (const h of pageRequests) byHost[h] = (byHost[h] || 0) + 1;
-  $('netHosts').textContent = pageRequests.length
-    ? 'to ' + Object.entries(byHost).map(([h, n]) => `${h} (${n})`).join(' · ')
+  $('netHosts').innerHTML = pageRequests.length
+    ? Object.entries(byHost).map(([h, n]) => {
+      const k = HOSTS.find(([re]) => re.test(h));
+      return `<div>${esc(h)} (${n}) · ${k ? `${k[1]} · <strong>${k[2]}</strong>` : '<strong>unexpected host: check it</strong>'}</div>`;
+    }).join('')
     : 'Nothing has left this device.';
   $('netList').innerHTML = modelRequests.slice(0, 10).map((r) =>
     `<p class="muted" style="margin:12px 0 6px">Cloud request ${r.n} · ${esc(r.host)} · ${r.call} · ${r.text.length} characters sent</p><pre>${hl(r.text)}</pre>`).join('');

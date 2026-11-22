@@ -29,6 +29,7 @@
   .check{margin-top:12px;padding:10px 12px;border-radius:8px;background:var(--accent-bg);font-size:14px} .check.bad{background:var(--warn-bg)} .check div{margin-top:6px}
   button.small{font-size:13px;padding:4px 10px}
   .hist{border-top:1px solid var(--line);margin-top:10px;padding-top:6px} .hist p{margin:0 0 4px}
+  .hostlist{margin-top:8px;line-height:1.7} .hostlist strong{color:var(--ink);font-weight:600}
   .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px} @media (max-width:760px){.grid{grid-template-columns:1fr}}
   .tablewrap{overflow-x:auto} table{border-collapse:collapse;width:100%;font-size:14px} td,th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
   .muted{color:var(--muted);font-size:13px} .hidden{display:none}
@@ -101,7 +102,8 @@
   <section id="netCard">
     <h2>What left this device</h2>
     <p class="muted" style="margin:0">Recorded by this page itself: every request it made after loading (the browser's Resource Timing) and, for the cloud model, the exact text that was sent. This log stays in the page.</p>
-    <div class="row"><span id="netCount" class="badge">requests since the page loaded: 0</span><span id="netHosts" class="muted">Nothing has left this device.</span></div>
+    <div class="row"><span id="netCount" class="badge">requests since the page loaded: 0</span></div>
+    <div id="netHosts" class="muted hostlist">Nothing has left this device.</div>
     <div id="netList"></div>
   </section>
 </main>
